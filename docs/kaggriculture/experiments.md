@@ -37,7 +37,8 @@ frozen version of this agent (contested market, the realistic case).
 | v6e | defer non-urgent ongoing-crop harvests until hour 10 (feed/water first) | 67% vs v6d; 59% on 32 more seeds | kept |
 | zones at hour 2 | assign zones only after all hires | 25% vs v6e | hour-1 hands targeted globally then walked back; reverted |
 | morning re-buy | buy wheat ignoring carried stock at hours 0-2 | 17-38% vs v6e | bought ~28 wheat/day for 15 animals; the end-of-day drop overflowed the 100-item shed |
-| **v6f** | zones at hour 1 for the *planned* unit count; morning purchase = per-zone shortfall; buffers trimmed; carried wheat counted in overflow checks | **58% vs v6e**; animals lost 3 → 0 | current submission |
+| **v6f** | zones at hour 1 for the *planned* unit count; morning purchase = per-zone shortfall; buffers trimmed; carried wheat counted in overflow checks | **75% vs v6e** (32 games); 81% vs v6d; starter 140.8k; animals lost 3 → 0 | **current submission** |
+| sweeps vs v6f (24 games each) | size_k 1.0 → 25%; size_k 0.7 → 38%; straw_mult 1.8 → 71%; straw_mult 2.1 → 50%; melon 12 → 62%; melon 15 → 62%; hands 13 → 67%; cow pace 3 → 25%; harvest_hour 13 → 54%; drop_threshold 20 → 38% | – | the three "winners" combined scored 41% on 32 fresh seeds, so the individual gains were noise; v6f defaults kept |
 
 Lesson: in a shared market, improvements that raise symmetric self-play income can lose
 head-to-head if they yield pools to a greedy opponent. Head-to-head against the previous

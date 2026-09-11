@@ -154,6 +154,7 @@ P = {
     "cow_k": 2.5,                 # cows = cow_base + expected milk demand / cow_k
     "cow_base": 3,
     "cow_min": 2,
+    "cow_pace_base": 2,
     "sheep_min": 2,
     "size_k": 0.85,               # fraction of demand to supply
     "fair_share": 0.5,            # floor (fraction of full-demand target) when the opponent already saturates a pool
@@ -727,7 +728,7 @@ def recipe_targets(ctx, counts):
 
     T = {}
     cow_cap = max(P["cow_min"], min(P["max_cows"], size("MILK", 1.5)))
-    T["COW"] = min(cow_cap, 2 + d) if d <= P["cow_last_day"] else 0
+    T["COW"] = min(cow_cap, P["cow_pace_base"] + d) if d <= P["cow_last_day"] else 0
     sheep_cap = max(P["sheep_min"], min(P["max_sheep"], size("WOOL", 1.33)))
     T["SHEEP"] = min(sheep_cap, 2 + d // 2) if d <= P["sheep_last_day"] else 0
     # strawberries: ~8 units per tile concentrated over ~12 days -> tiles ~ 1.5 x daily demand
