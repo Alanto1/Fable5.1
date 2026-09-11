@@ -159,6 +159,7 @@ P = {
     "fair_share": 0.5,            # floor (fraction of full-demand target) when the opponent already saturates a pool
     "straw_mult": 1.5,
     "feed_tiles_per_animal": 1.0,
+    "wheat_buffer": 2,
     "carrot_min_dem": 10,
     "egg_min_dem": 8,
     "max_geese": 14,
@@ -1226,9 +1227,12 @@ def schedule_units(ctx, mem, tasks):
                     dropping[k] = dropping.get(k, 0) + v
                 continue
             my_wheat = inv.get("WHEAT", 0)
+            must_feed = sum(1 for x, y, t in ctx.animals if not G(t, "fed_today", False) and int(G(t, "consecutive_unfed", 0)) >= 1)
             if zones:
                 zone_unfed = sum(1 for x, y, t in ctx.animals if zones.get((x, y)) == u and not G(t, "fed_today", False))
-                need_w = zone_unfed + 1 - my_wheat if zone_unfed > 0 else 0
+                need_w = zone_unfed + P["wheat_buffer"] - my_wheat if zone_unfed > 0 else 0
+                if my_wheat == 0 and must_feed > 0:
+                    need_w = max(need_w, min(must_feed, 4))
             else:
                 need_w = (unfed - carried_wheat) if my_wheat == 0 else 0
             if not last_day and need_w > 0 and shed_wheat > 0:

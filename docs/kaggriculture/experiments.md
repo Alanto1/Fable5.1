@@ -31,6 +31,8 @@ frozen version of this agent (contested market, the realistic case).
 | +expected-demand pricing | marginal price model uses expected demand; guards 70/70/60 | 12% vs v6b; wins seed 2300 | two-sided compare showed $12k/game of bought feed wheat |
 | **v6c** | feed wheat tiles allocated right after animals | **66% vs v6b** (90.9k vs 87.7k, 32 games); 92% vs v5; starter 124.7k | self-play 111.7k on seed 100 (was 71k) |
 | sweeps | fair_share 0.7, sheep_min 3 (no-ops), feed tiles 1.3 (44%) | – | kept defaults |
+| melons near shed | day-0 melons on the tiles closest to the shed | 25% vs v6c | animals lose the prime tiles for the whole game; reverted |
+| **v6d** | per-zone feed pickup (units fetched wheat only when the *global* carried count was short, so zones starved while others carried 50 wheat) | **92% vs v6c** (108.4k vs 100.4k); 88% on 32 more seeds; 100% vs v5; starter 135.5k | animals lost per game 8 → 3 |
 
 Lesson: in a shared market, improvements that raise symmetric self-play income can lose
 head-to-head if they yield pools to a greedy opponent. Head-to-head against the previous

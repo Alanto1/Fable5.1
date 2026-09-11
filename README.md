@@ -23,6 +23,8 @@ without Kaggle credentials (see `docs/research.md`):
 | `docs/kaggriculture/economics.md` | Engine-derived economics: yields, price curves, pots, town demand, labor |
 | `docs/kaggriculture/strategy.md` | How the agent decides (planner, scheduler, market) |
 | `docs/kaggriculture/experiments.md` | Results log of every iteration |
+| `docs/kaggriculture/top-bots.md` | What the ~3,000-Elo bots do, mined from 60 leaderboard replays |
+| `kaggriculture/sim/compare.py` | Two-sided game comparison: money by day, census, revenue by product for both players |
 
 ### Setup
 
@@ -40,7 +42,7 @@ not available in this environment, so submission is a manual step:
 ```bash
 pip install kaggle
 # put your API token in ~/.kaggle/access_token (Kaggle → Settings → API → Generate New Token)
-kaggle competitions submit kaggriculture -f kaggriculture/main.py -m "value-driven farm manager v5"
+kaggle competitions submit kaggriculture -f kaggriculture/main.py -m "recipe farm manager v6"
 kaggle competitions submissions kaggriculture
 ```
 

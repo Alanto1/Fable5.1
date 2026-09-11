@@ -1,5 +1,16 @@
 # Kaggriculture agent – strategy and architecture
 
+> v6 (current): the daily planner is **recipe-driven**, built from the replay analysis in
+> `top-bots.md`. Targets per product are sized to expected town demand (current shops plus a
+> discounted expectation of future unlocks), reduced only when the opponent's visible production
+> already exceeds the demand alone: cows ≈ milk demand / 1.5, sheep ≈ wool demand / 1.33,
+> strawberries ≈ 1.5 × strawberry demand (cap 44), tomatoes when tomato demand ≥ 18/day,
+> carrots ≥ 10/day, geese when egg demand ≥ 8/day, 10 melons on day 0-1, wheat tiles equal to
+> the animal count plus two (feed self-sufficiency) and wheat as filler, no fourth quadrant,
+> 4-5 hands early and 12 from day 11. Fertilizer is an input (strawberries at ages 9/13,
+> tomatoes at 7/10) with a shed reserve. The sections below describe the shared execution
+> machinery (economy model, tasks, scheduler, market), which is unchanged.
+
 The agent (`kaggriculture/main.py`, ~1,100 lines, no dependencies beyond the standard library)
 runs in ~0.6 ms per turn (max ~60 ms on replan turns) against a 1 s limit.
 
