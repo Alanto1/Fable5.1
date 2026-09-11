@@ -129,7 +129,7 @@ P = {
     "reserve_frac": 0.30,     # crash-prone goods: hold when price < base*frac
     "fert_reserve_frac": 0.12,
     "drop_threshold": 14,     # carried products before a unit drops when at the shed
-    "discount_hi": 0.10,      # daily discount rate when capital-constrained (early)
+    "discount_hi": 0.18,      # daily discount rate when capital-constrained (early)
     "discount_lo": 0.02,
     "land_margin": 0.6,       # buy land when 25 * best tile value * margin > price
     "fert_use_price": 40,     # apply fertilizer to crops when its sale price is below this
@@ -138,14 +138,7 @@ P = {
     "opening": "auto",        # or e.g. "GOOSE:9" / "MELON:12,GOOSE:6" forced day-0 buys
     "replan_hours": 3,
     "feed_days": 2,
-    "cull_per_replan": 3,
-    "task_price_mode": "marginal",   # or "spot"
-    "cull_margin": 0.0,       # stop feeding an animal whose daily value < feed price * margin (0 = never cull)
-    "labor_margin": 1.12,
-    "hand_capacity": 20,      # useful actions per hired hand per day
-    "farmer_capacity": 22,
-    "load_animal": 4.3,
-    "load_plant": 2.2,
+    "labor_margin": 1.15,
     "late_animal_day": 24,
 }
 try:
@@ -189,7 +182,6 @@ def dist(a, b):
 
 
 MEM = {}
-DEBUG = bool(os.environ.get("KAGG_DEBUG"))
 
 
 class Ctx:
@@ -294,9 +286,6 @@ def projected_supply(ctx):
         if n:
             s[ANIMALS[a]["product"]] += n * (dl - ANIMALS[a]["first"]) * (1.0 + ANIMALS[a]["interval"]) / ANIMALS[a]["interval"]
             s["FERTILIZER"] += n * (dl - 1)
-    for crop, n in ctx.seeds.items():
-        if n > 0 and crop in CROPS:
-            s[CROPS[crop]["product"]] += n * CROPS[crop]["units"]
     for p in PRODUCTS:
         s[p] += ctx.shed.get(p, 0) + ctx.carried(p)
     return s
@@ -357,28 +346,14 @@ class Econ:
 
 
 def discount_rate(ctx):
-    """Daily discount rate: high when cash is the bottleneck (early), low when cash is plentiful."""
-    scarcity = max(0.0, min(1.0, 1.0 - ctx.money / 4000.0))
-    return P["discount_lo"] + (P["discount_hi"] - P["discount_lo"]) * scarcity
+    used = len(ctx.animals) + len(ctx.plants)
+    frac_free = max(0.0, 1.0 - used / 100.0)
+    return P["discount_lo"] + (P["discount_hi"] - P["discount_lo"]) * frac_free
 
 
-def labor_lambda(ctx, hands=None):
-    """Marginal price of one unit-action given `hands` hired (cost of the next hand / its capacity)."""
-    h = max(0, ctx.unit_count() - 1) if hands is None else hands
-    return max(P["labor_lambda_min"], fib(min(h, 25)) / P["hand_capacity"])
-
-
-def labor_capacity(hands):
-    return P["farmer_capacity"] + P["hand_capacity"] * hands
-
-
-def hands_for_load(load):
-    h = 0
-    while h < P["max_hands"] and labor_capacity(h) < load * P["labor_margin"]:
-        if fib(h) > P["hire_cap_cost"]:
-            break
-        h += 1
-    return h
+def labor_lambda(ctx):
+    h = max(0, ctx.unit_count() - 1)
+    return max(P["labor_lambda_min"], fib(min(h, 14)) / 23.0)
 
 
 def option_value(ctx, econ, name, r, lam, feed_price):
@@ -408,7 +383,7 @@ def option_value(ctx, econ, name, r, lam, feed_price):
         for day, units in events:
             v += units * price / (1 + r) ** day
         for day in range(1, dl):
-            v += (max(0.0, fert_price - 2.0) - feed_price - lam * P["load_animal"]) / (1 + r) ** day
+            v += (max(0.0, fert_price - 2.0) - feed_price - lam * 4.3) / (1 + r) ** day
         return v, total
     c = CROPS[name]
     if c["ongoing"]:
@@ -429,8 +404,7 @@ def option_value(ctx, econ, name, r, lam, feed_price):
         for day, units in events:
             v += units * price / (1 + r) ** day
         occupancy = min(dl - 1, c["first"] + c["interval"] * (c["max_yield"] - 1))
-        for day in range(occupancy):
-            v -= lam * P["load_plant"] / (1 + r) ** day
+        v -= lam * 2.0 * occupancy
         return v, total
     L = CYCLE[name]
     if dl - 1 < L:
@@ -443,14 +417,13 @@ def option_value(ctx, econ, name, r, lam, feed_price):
     v = 0.0
     for k in range(cycles):
         v += (c["units"] * price - c["seed"]) / (1 + r) ** ((k + 1) * L)
-    for day in range(cycles * L):
-        v -= lam * P["load_plant"] / (1 + r) ** day
+    v -= lam * 2.0 * cycles * L
     return v, total
 
 
-def evaluate_options(ctx, econ, hands=None):
+def evaluate_options(ctx, econ):
     r = discount_rate(ctx)
-    lam = labor_lambda(ctx, hands)
+    lam = labor_lambda(ctx)
     feed_price = econ.wheat_feed_price()
     vals = {}
     for name in list(ANIMALS) + list(CROPS):
@@ -482,18 +455,14 @@ def plan_day(ctx, mem):
     econ = Econ(ctx)
     old_plan = mem.get("plan", {}) or {}
     plan = {}
-    # keep old entries only while they are funded (seed/animal already in stock); others are re-planned
-    funded = {a: ctx.shed.get(a, 0) + ctx.carried(a) for a in ANIMALS}
-    funded.update({c: ctx.seeds.get(c, 0) for c in CROPS})
-    for pos, name in sorted(old_plan.items(), key=lambda kv: dist(kv[0], ctx.nearest_shed_tile(kv[0]))):
+    # keep still-valid existing plan entries (stability for units already heading there)
+    for pos, name in old_plan.items():
         t = ctx.tiles[pos[1]][pos[0]]
-        ok_tile = t is None or is_weed(t) or (is_structure(t) and name in ANIMALS and G(t, "kind") == ANIMALS[name]["structure"])
-        if ok_tile and funded.get(name, 0) > 0:
+        if t is None or is_weed(t) or (is_structure(t) and name in ANIMALS and G(t, "kind") == ANIMALS[name]["structure"]):
             plan[pos] = name
-            funded[name] -= 1
     free = [p for p in ctx.empties if p not in plan]
     free += [p for p in ctx.weeds if p not in plan]
-    free += [(x, y) for x, y, t in ctx.structures if (x, y) not in plan]
+    # empty structures: reuse for matching animal if planned, else they can be dug (handled in tasks)
     free.sort(key=lambda p: dist(p, ctx.nearest_shed_tile(p)))
     # 1) sunk assets: animals in shed/inventories, seeds already bought
     sunk = {}
@@ -516,20 +485,21 @@ def plan_day(ctx, mem):
             pos = free.pop(0)
             plan[pos] = name
             sunk[name] -= 1
-    # 2) new allocations; the hand count H grows while the marginal hand pays for itself
+    # 2) new allocations
     buy = {}
     budget = ctx.money - cash_reserve(ctx)
-    load = estimate_actions(ctx) + sum(P["load_animal"] if n in ANIMALS else P["load_plant"] for n in plan.values())
-    H = hands_for_load(load)
-    labor_left = labor_capacity(H) / P["labor_margin"] - load
-    vals = evaluate_options(ctx, econ, H) if ctx.days_left >= 3 else {}
+    # labor budget for today (rough)
+    max_actions = (24 + 22 * P["max_hands"] - 3 * (P["max_hands"] + 1)) / P["labor_margin"]
+    labor_left = max_actions - estimate_actions(ctx) - sum(4.5 if n in ANIMALS else 2.3 for n in plan.values())
+    vals = evaluate_options(ctx, econ) if ctx.days_left >= 3 else {}
     n_new = 0
     hours_ok = ctx.hours_left >= 4 and not ctx.last_day
     while free and vals and hours_ok:
         best = None
         for name, (v, units) in vals.items():
             cost = ANIMALS[name]["cost"] if name in ANIMALS else CROPS[name]["seed"]
-            if cost > budget:
+            need_labor = 4.5 if name in ANIMALS else 2.3
+            if cost > budget or labor_left < need_labor:
                 continue
             if name in ANIMALS and ctx.day > P["late_animal_day"]:
                 continue
@@ -538,81 +508,31 @@ def plan_day(ctx, mem):
         if best is None:
             break
         name, v, units, cost = best
-        need_labor = P["load_animal"] if name in ANIMALS else P["load_plant"]
-        if labor_left < need_labor:
-            # hire one more hand if allowed and re-price labor; stop if nothing stays profitable
-            if H >= P["max_hands"] or fib(H) > P["hire_cap_cost"] or budget < fib(H) * 2:
-                break
-            H += 1
-            labor_left += P["hand_capacity"] / P["labor_margin"]
-            vals = evaluate_options(ctx, econ, H)
-            if not vals:
-                H -= 1
-                labor_left -= P["hand_capacity"] / P["labor_margin"]
-                break
-            continue
         pos = free.pop(0)
         plan[pos] = name
         buy[name] = buy.get(name, 0) + 1
         budget -= cost
         if name in ANIMALS:
             budget -= P["feed_days"] * feed_unit_price(ctx)  # feed safety for the new animal
-        labor_left -= need_labor
+        labor_left -= 4.5 if name in ANIMALS else 2.3
         n_new += 1
+        # update supply and re-evaluate
         prod = ANIMALS[name]["product"] if name in ANIMALS else CROPS[name]["product"]
         econ.ours[prod] += units
         if name in ANIMALS:
             econ.ours["FERTILIZER"] += ctx.days_left - 1
-        vals = evaluate_options(ctx, econ, H)
-    mem["H"] = H
-    # 3) land: when funded tiles are exhausted and cash remains, consider the next quadrant
+        vals = evaluate_options(ctx, econ)
+    # 3) land: if tiles are exhausted, consider buying the next quadrant
     want_land = False
-    if len(ctx.unlocked) < 4 and ctx.days_left >= 7 and vals and not ctx.last_day:
+    if not free and len(ctx.unlocked) < 4 and ctx.days_left >= 7 and vals and not ctx.last_day:
         price = LAND_PRICES[len(ctx.unlocked) - 1]
-        best_name, (best_v, _u) = max(vals.items(), key=lambda kv: kv[1][0])
-        best_cost = ANIMALS[best_name]["cost"] if best_name in ANIMALS else CROPS[best_name]["seed"]
-        # tiles still free after allocation (money or labor ran out) mean land is not the bottleneck
-        if not free and best_v * 25 * P["land_margin"] > price and budget >= price + 3 * best_cost:
+        best_v = max(v for v, u in vals.values())
+        # value of 25 more tiles (diminishing) vs price, must be affordable after reserve
+        if best_v * 25 * P["land_margin"] > price and budget >= price + 200:
             want_land = True
-    if DEBUG:
-        stop = "free" if not free else ("hours" if not hours_ok else ("vals" if not vals else "budget/labor"))
-        print(f"[plan] d{ctx.day}h{ctx.hour} money={ctx.money:.0f} budget={budget:.0f} H={H} labor_left={labor_left:.0f} "
-              f"free={len(free)} new={n_new} stop={stop} land={want_land} r={discount_rate(ctx):.2f} "
-              f"vals={ {k: round(v[0]) for k, v in vals.items()} } buy={buy}")
     mem["plan"] = plan
     mem["buy"] = buy
     mem["vals"] = vals
-    # marginal prices of each product given projected supply (for task priorities)
-    econ2 = Econ(ctx)
-    mprice = {}
-    for p in PRODUCTS:
-        mprice[p] = max(1.0, min(ctx.prices.get(p, 1), econ2.marginal(p, 5.0)))
-    mem["mprice"] = mprice
-    feed_price = feed_unit_price(ctx)
-    mem["feed_price"] = feed_price
-    # culling: stop feeding animals whose marginal production no longer covers feed, one at a time
-    cull = set()
-    if ctx.days_left > 3:
-        dl = ctx.days_left
-        for _ in range(P["cull_per_replan"]):
-            worst = None
-            for x, y, t in ctx.animals:
-                if (x, y) in cull:
-                    continue
-                a = ANIMALS[t["animal"]]
-                per_day = (1.0 + a["interval"]) / a["interval"]
-                units = per_day * (dl - 1)
-                mp = econ2.marginal(a["product"], units)
-                fm = max(0.0, econ2.marginal("FERTILIZER", dl - 1) - 2.0)
-                daily = mp * per_day + fm
-                if daily < feed_price * P["cull_margin"] and (worst is None or daily < worst[0]):
-                    worst = (daily, (x, y), a["product"], units)
-            if worst is None:
-                break
-            cull.add(worst[1])
-            econ2.ours[worst[2]] -= worst[3]
-            econ2.ours["FERTILIZER"] -= dl - 1
-    mem["cull"] = cull
     gross = {}
     for name in list(ANIMALS) + list(CROPS):
         cost = ANIMALS[name]["cost"] if name in ANIMALS else CROPS[name]["seed"]
@@ -625,7 +545,7 @@ def plan_day(ctx, mem):
 
 
 def estimate_actions(ctx):
-    return len(ctx.animals) * P["load_animal"] + len(ctx.plants) * P["load_plant"] + len(ctx.weeds) * 0.3
+    return len(ctx.animals) * 4.5 + len(ctx.plants) * 2.3 + len(ctx.weeds) * 0.3
 
 
 # ----------------------------------------------------------------------------
@@ -634,21 +554,16 @@ def estimate_actions(ctx):
 
 def gen_tasks(ctx, mem, plan):
     tasks = {}
-    mprice = mem.get("mprice") or {}
     fert_price = ctx.prices.get("FERTILIZER", 1)
-    fert_mval = mprice.get("FERTILIZER", fert_price)
-    feed_price = mem.get("feed_price", feed_unit_price(ctx))
     last_day = ctx.last_day
     use_fert = fert_price <= P["fert_use_price"]
-    cull = mem.get("cull") or set()
 
     def add(pos, op, value, needs=None):
         tasks.setdefault(pos, []).append((op, value, needs))
 
     for x, y, t in ctx.animals:
         a = ANIMALS[t["animal"]]
-        spot = ctx.prices.get(a["product"], 1)
-        price = max(1.0, min(spot, mprice.get(a["product"], spot))) if P["task_price_mode"] == "marginal" else spot
+        price = ctx.prices.get(a["product"], 1)
         fed = bool(G(t, "fed_today", False))
         unfed_run = int(G(t, "consecutive_unfed", 0))
         held = int(G(t, "yield_units", 0))
@@ -656,14 +571,13 @@ def gen_tasks(ctx, mem, plan):
         age_next = ctx.day + 1 - int(G(t, "placed_day", ctx.day))
         dsf = age_next - a["first"]
         produces_tonight = dsf >= 0 and dsf % a["interval"] == 0
-        keep = (x, y) not in cull
-        if not fed and not last_day and ctx.days_left > 1 and keep:
+        if not fed and not last_day:
             v = 100000.0 if unfed_run >= 1 else (2000.0 + price * 2.0)
             add((x, y), ["FEED"], v, "WHEAT")
-        if not G(t, "cared_today", False) and not last_day and ctx.days_left > 2 and keep:
+        if not G(t, "cared_today", False) and not last_day and ctx.days_left > 2:
             add((x, y), ["CARE"], price * (1.0 if fed else 0.9))
         if G(t, "fertilizer_available", False):
-            add((x, y), ["COLLECT_FERTILIZER"], max(1.0, fert_mval - 2 if not use_fert else 30.0))
+            add((x, y), ["COLLECT_FERTILIZER"], max(1.0, fert_price - 2 if not use_fert else 30.0))
         if held > 0:
             nxt = (1 + pend) if produces_tonight else 0
             overflow = held + nxt - a["max_held"]
@@ -675,8 +589,7 @@ def gen_tasks(ctx, mem, plan):
 
     for x, y, t in ctx.plants:
         c = CROPS[t["crop"]]
-        spot = ctx.prices.get(c["product"], 1)
-        price = max(1.0, min(spot, mprice.get(c["product"], spot))) if P["task_price_mode"] == "marginal" else spot
+        price = ctx.prices.get(c["product"], 1)
         age = ctx.day - int(G(t, "planted_day", ctx.day))
         watered = bool(G(t, "watered_today", False))
         unw = int(G(t, "consecutive_unwatered", 0))
@@ -716,9 +629,6 @@ def gen_tasks(ctx, mem, plan):
     for x, y in ctx.weeds:
         if (x, y) not in plan:
             add((x, y), ["DIG"], 12.0 if ctx.days_left > 4 else 0.0)
-    for x, y, t in ctx.structures:
-        if (x, y) not in plan and ctx.days_left > 6:
-            add((x, y), ["DIG"], 6.0)
 
     gross = mem.get("gross", {}) or {}
     for pos, name in plan.items():
@@ -994,12 +904,16 @@ def desired_hands(ctx, mem):
         buyable += k
         cash -= k * cost
     placements = min(len(plan), sunk_anim + sunk_seed + buyable)
-    actions = len(ctx.animals) * P["load_animal"] + len(ctx.plants) * P["load_plant"] + placements * 3.0 + len(ctx.weeds) * 0.3
+    # per-tile load already includes one move per tile; add per-unit overhead (pickups, trips)
+    actions = len(ctx.animals) * 4.5 + len(ctx.plants) * 2.3 + placements * 3.0 + len(ctx.weeds) * 0.3
     if ctx.last_day:
         actions = len(ctx.animals) * 1.5 + len(ctx.plants) * 1.2 + 4
-    need = hands_for_load(actions)
-    if not ctx.last_day:
-        need = max(need, int(mem.get("H", 0)))
+    need = 0
+    while need < P["max_hands"]:
+        capacity = 24 + 22 * need - 3 * (need + 1)
+        if capacity >= actions * P["labor_margin"]:
+            break
+        need += 1
     cash = ctx.money - cash_reserve(ctx) * 0.5
     h = 0
     while h < min(need, P["max_hands"]):
@@ -1080,7 +994,7 @@ def market_orders(ctx, mem, buy_plan):
                 break
             orders.append(["HIRE"])
             cash -= c
-            if len(orders) >= 8:
+            if len(orders) >= 7:
                 break
     # land
     if mem.get("want_land") and len(ctx.unlocked) < 4 and ctx.hours_left >= 4:
@@ -1094,10 +1008,7 @@ def market_orders(ctx, mem, buy_plan):
     shed_room = SHED_CAP - ctx.shed_total
     if ctx.hours_left >= 5 and dl >= 2:
         reserve = cash_reserve(ctx)
-        plan_names = {}
-        for v in (mem.get("plan") or {}).values():
-            plan_names[v] = plan_names.get(v, 0) + 1
-        for name, n in sorted(plan_names.items(), key=lambda kv: -(ANIMALS[kv[0]]["cost"] if kv[0] in ANIMALS else CROPS[kv[0]]["seed"])):
+        for name, n in sorted(buy_plan.items(), key=lambda kv: -(ANIMALS[kv[0]]["cost"] if kv[0] in ANIMALS else CROPS[kv[0]]["seed"])):
             if name in ANIMALS:
                 have = ctx.shed.get(name, 0) + ctx.carried(name)
                 planned = sum(1 for v in (mem.get("plan") or {}).values() if v == name)
@@ -1106,8 +1017,7 @@ def market_orders(ctx, mem, buy_plan):
                 k = min(need, int((cash - reserve) // cost), shed_room)
                 if k > 0:
                     orders.append(["BUY_ANIMAL", name, k])
-                    cash -= k * ANIMALS[name]["cost"]
-                    reserve += k * P["feed_days"] * feed_unit_price(ctx)
+                    cash -= k * cost
                     shed_room -= k
             else:
                 planned = sum(1 for v in (mem.get("plan") or {}).values() if v == name)
@@ -1132,7 +1042,7 @@ def market_orders(ctx, mem, buy_plan):
                     orders.append(["BUY_PRODUCT", "WHEAT", k])
                     cash -= k * unit_price
     sells = sell_orders(ctx, mem)
-    hires = [o for o in orders if o[0] == "HIRE"][:6]
+    hires = [o for o in orders if o[0] == "HIRE"][:5]
     feed = [o for o in orders if o[0] == "BUY_PRODUCT"]
     buys = [o for o in orders if o[0] in ("BUY_LAND", "BUY_ANIMAL", "BUY_SEED")]
     final = hires + feed + sells[:4] + buys + sells[4:]

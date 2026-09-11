@@ -21,12 +21,19 @@ def main():
     env = make("kaggriculture", configuration={"episodeSteps": 720, "seed": seed}, debug=True)
     env.run([wrapped, opp_fn])
     lost_total = 0
+    hire_cost = 0
+    def fib(n):
+        a, b = 1, 1
+        for _ in range(n):
+            a, b = b, a + b
+        return a
     for d in range(0, 30):
         st = env.steps[min(d * 24, len(env.steps) - 1)]
         ob = st[0].observation
         f = ob["farms"][0]
         st12 = env.steps[min(d * 24 + 12, len(env.steps) - 1)]
         hands12 = len(st12[0].observation["farms"][0]["hands"])
+        hire_cost += sum(fib(i) for i in range(hands12))
         # animals lost overnight: animal tiles at day d-1 hour 23 that are empty structures now
         lost = 0
         if d > 0:
@@ -53,7 +60,7 @@ def main():
               f"{dict(census)} shed={shed} shops={len(ob['town']['unlocked_shops'])} "
               f"P: W{pr['WHEAT']} E{pr['EGG']} M{pr['MELON']} F{pr['FERTILIZER']} C{pr['CARROT']} S{pr['STRAWBERRY']} Mi{pr['MILK']} Wo{pr['WOOL']} T{pr['TOMATO']}")
     fin = env.steps[-1]
-    print("FINAL:", [(i, s.reward, s.status) for i, s in enumerate(fin)], "animals lost total:", lost_total)
+    print("FINAL:", [(i, s.reward, s.status) for i, s in enumerate(fin)], "animals lost total:", lost_total, "total hire cost:", hire_cost)
     print("shops:", env.steps[-1][0].observation["town"]["unlocked_shops"])
     print(f"agent step time: mean={1000*sum(times)/len(times):.1f}ms max={1000*max(times):.1f}ms n={len(times)}")
 
