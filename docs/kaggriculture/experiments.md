@@ -33,6 +33,11 @@ frozen version of this agent (contested market, the realistic case).
 | sweeps | fair_share 0.7, sheep_min 3 (no-ops), feed tiles 1.3 (44%) | – | kept defaults |
 | melons near shed | day-0 melons on the tiles closest to the shed | 25% vs v6c | animals lose the prime tiles for the whole game; reverted |
 | **v6d** | per-zone feed pickup (units fetched wheat only when the *global* carried count was short, so zones starved while others carried 50 wheat) | **92% vs v6c** (108.4k vs 100.4k); 88% on 32 more seeds; 100% vs v5; starter 135.5k | animals lost per game 8 → 3 |
+| v6d+ | wheat buffer, must-feed pickup for any wheat-less unit | 62% vs v6d | kept |
+| v6e | defer non-urgent ongoing-crop harvests until hour 10 (feed/water first) | 67% vs v6d; 59% on 32 more seeds | kept |
+| zones at hour 2 | assign zones only after all hires | 25% vs v6e | hour-1 hands targeted globally then walked back; reverted |
+| morning re-buy | buy wheat ignoring carried stock at hours 0-2 | 17-38% vs v6e | bought ~28 wheat/day for 15 animals; the end-of-day drop overflowed the 100-item shed |
+| **v6f** | zones at hour 1 for the *planned* unit count; morning purchase = per-zone shortfall; buffers trimmed; carried wheat counted in overflow checks | **58% vs v6e**; animals lost 3 → 0 | current submission |
 
 Lesson: in a shared market, improvements that raise symmetric self-play income can lose
 head-to-head if they yield pools to a greedy opponent. Head-to-head against the previous
