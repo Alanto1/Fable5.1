@@ -14,17 +14,22 @@ frozen version of this agent (contested market, the realistic case).
 | v3 | discount_hi 0.10, 13 hands, $400 hire cap, no cull, 2-day feed | 94k (12 seeds) | **88% vs v2** (28/32, 83.8k vs 71.2k) | frozen as `champ_v3` |
 | v4 | nearest-first sweeps, endgame liquidation, carried-item routing, purchase guards | **110.6k** (12 seeds, 100% wins) | **84% vs v3** (27/32, 93.9k vs 79.1k) | seed 1: 110k → 144k; unsold at end: $0 |
 | v4.1 | last-day hires sized for a full harvest sweep | 145.5k / 67.5k on seeds 1 / 5 (+1.4k / −0.1k) | 38% vs v4 (16 games, income equal) | neutral, kept |
+| v4.2 | placement tasks value-first + placement labor budget + unplaced-animal cap | 92k on seed 1 | **0% vs v4** (0/32) | value-first placement wrecked the sweeps |
+| ablations | each of the three v4.2 changes alone (vs v4, 16-24 games) | – | no-priority 50%, no-labor-budget 54%, no-cap 25% | placement priority and labor budget were the harm; the cap is fine |
+| v5 | unplaced-animal cap (4), placement labor 0, harvest all in the last 2 days, crash-prone goods first in sell list, robustness wrapper, 13 hands on the last day | **120.7k** (12 seeds, 100% wins) | **66-67% vs v4** (21/32 and 16/24; +5-6k mean) | seed 1: 155k; seed 5: 67k → 97k; produce left on tiles at the end: $4.7k → $0.2k |
 
-## Opening A/B (v2 planner, 16 games each vs auto)
+## Opening A/B (16 games each vs the auto planner)
 
-| Forced day-0 opening | Income | Auto planner income | Win rate |
-|---|---|---|---|
-| 9 geese | 49k | 84k | 0% |
-| 12 melons + 6 geese | 61k | 77k | 6% |
-| 25 melons + 2 geese | 60k | 81k | 0% |
+| Forced day-0 opening | v2 planner: income / auto / win | v5 planner: income / auto / win |
+|---|---|---|
+| 9 geese | 49k / 84k / 0% | 61k / 102k / 0% |
+| 12 melons + 6 geese | 61k / 77k / 6% | 86k / 89k / 44% |
+| 25 melons + 2 geese | 60k / 81k / 0% | 79k / 92k / 12% |
+| 4 sheep + 3 geese | – | 66k / 104k / 6% |
 
 The planner's own mixed opening (≈8 melons, 2 geese, 2 sheep, 1 cow, carrots) beat every
-forced opening; forced openings also starved animals because they left no feed cash.
+forced opening under both planners; forced openings also starved animals because they left
+no feed cash.
 
 ## Diagnostics that drove the design
 
@@ -40,7 +45,7 @@ forced opening; forced openings also starved animals because they left no feed c
 
 ## Known remaining inefficiencies
 
-- Animals occasionally bought late and never placed (seed 5: 5 sheep in the shed at the end).
-- ~$1.5-3k of produce left on tiles at the end of the last day.
+- A few animals bought late and never placed (capped at 4 unplaced; seed 1 ends with 3 cows in the shed).
+- ~$2-5k of produce left on tiles at the end of the last day.
 - Town shop RNG depends on both farms' empty-tile counts, so evaluation noise is high;
   32-game samples are needed to resolve differences under ~5%.

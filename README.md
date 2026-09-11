@@ -40,7 +40,7 @@ not available in this environment, so submission is a manual step:
 ```bash
 pip install kaggle
 # put your API token in ~/.kaggle/access_token (Kaggle → Settings → API → Generate New Token)
-kaggle competitions submit kaggriculture -f kaggriculture/main.py -m "value-driven farm manager v4"
+kaggle competitions submit kaggriculture -f kaggriculture/main.py -m "value-driven farm manager v5"
 kaggle competitions submissions kaggriculture
 ```
 
