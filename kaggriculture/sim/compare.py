@@ -23,6 +23,8 @@ def main():
     mods = [load(os.path.join(ROOT, p)) for p in (a_path, b_path)]
     rev = [collections.defaultdict(lambda: [0, 0.0]) for _ in range(2)]
     hires = [0, 0]
+    spend = [collections.defaultdict(float) for _ in range(2)]
+    ops = [collections.Counter() for _ in range(2)]
     def mk(i):
         def f(obs, cfg):
             a = mods[i].agent(obs, cfg)
@@ -32,6 +34,14 @@ def main():
                     rev[i][o[1]][0] += int(o[2]); rev[i][o[1]][1] += int(o[2]) * pr.get(o[1], 0)
                 elif o[0] == "HIRE":
                     hires[i] += 1
+                elif o[0] == "BUY_PRODUCT" and len(o) >= 3:
+                    spend[i][o[1]] += int(o[2]) * pr.get(o[1], 0)
+                elif o[0] == "BUY_ANIMAL" and len(o) >= 3:
+                    spend[i]["animals"] += int(o[2]) * {"GOOSE": 300, "COW": 400, "SHEEP": 500}.get(o[1], 0)
+                elif o[0] == "BUY_SEED" and len(o) >= 3:
+                    spend[i]["seeds"] += int(o[2]) * {"WHEAT": 10, "CARROT": 20, "TOMATO": 50, "STRAWBERRY": 100, "MELON": 80}.get(o[1], 0)
+            for o in [a["farmer"]] + a["hands"]:
+                ops[i][o[0] if o[0] in ("NORTH","SOUTH","EAST","WEST") and False else ("MOVE" if o[0] in ("NORTH","SOUTH","EAST","WEST") else o[0])] += 1
             return a
         return f
     env = make("kaggriculture", configuration={"episodeSteps": 720, "seed": seed}, debug=True)
@@ -49,6 +59,7 @@ def main():
         print("        prices: " + " ".join(f"{k[:5]}={v}" for k, v in pr.items()))
     for i in (0, 1):
         print(f"{names[i]} revenue: " + " ".join(f"{k}=({v[0]},{v[1]:,.0f},{v[1]/max(1,v[0]):.0f})" for k, v in sorted(rev[i].items(), key=lambda kv: -kv[1][1])) + f" hires={hires[i]}")
+        print(f"{names[i]} spend: " + " ".join(f"{k}={v:,.0f}" for k, v in sorted(spend[i].items(), key=lambda kv: -kv[1])) + " | ops: " + " ".join(f"{k}={v}" for k, v in ops[i].most_common(8)))
 
 if __name__ == "__main__":
     main()
