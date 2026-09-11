@@ -137,8 +137,6 @@ P = {
     "feed_price_cap": 60,     # never pay more than this per feed wheat
     "opening": "auto",        # or e.g. "GOOSE:9" / "MELON:12,GOOSE:6" forced day-0 buys
     "replan_hours": 3,
-    "rush_hours": 6,          # value-first targeting when this few hours remain in the day
-    "sweep_dist_pow": 2.0,    # distance exponent for nearest-first sweeping
     "feed_days": 2,
     "cull_per_replan": 3,
     "task_price_mode": "marginal",   # or "spot"
@@ -874,8 +872,6 @@ def schedule_units(ctx, mem, tasks):
     last_day = ctx.last_day
     any_tasks = any(any(v > 0 for op, v, needs in lst) for lst in tasks.values())
 
-    dropping = {}
-    mem["dropping"] = dropping
     zones = mem.get("zones") or {}
     if mem.get("zones_key") != (ctx.day, n_units):
         zones = assign_zones(ctx, mem, mem.get("plan", {}) or {})
@@ -889,17 +885,14 @@ def schedule_units(ctx, mem, tasks):
         d_shed = dist(pos, shed_tile)
         shed_room = SHED_CAP - ctx.shed_total
         total_carried = sum(products_carried(i) for i in ctx.invs)
-        must_return = n_prod > 0 and hours_left <= d_shed + 2 and (last_day or total_carried > shed_room - 5)
+        must_return = n_prod > 0 and hours_left <= d_shed + 1 and (last_day or total_carried > shed_room - 5)
         if at_shed:
-            end_drop = n_prod > 0 and hours_left <= 3 and (last_day or total_carried > shed_room - 5)
+            end_drop = n_prod > 0 and hours_left <= 2 and (last_day or total_carried > shed_room - 5)
             if n_prod > 0 and (n_prod >= P["drop_threshold"] or end_drop or not any_tasks):
                 ops[u] = ["DROP"]
-                for k, v in inv.items():
-                    dropping[k] = dropping.get(k, 0) + v
                 continue
             if not last_day and inv.get("WHEAT", 0) == 0 and unfed > carried_wheat and shed_wheat > 0:
-                zone_unfed = sum(1 for x, y, t in ctx.animals if zones.get((x, y)) == u and not G(t, "fed_today", False))
-                share = zone_unfed + 1 if zones else int(math.ceil((unfed - carried_wheat) * 1.3 / max(1, n_units))) + 2
+                share = int(math.ceil((unfed - carried_wheat) * 1.3 / max(1, n_units))) + 2
                 share = max(1, min(shed_wheat, share, 14))
                 ops[u] = ["PICKUP", "WHEAT", share]
                 shed_wheat -= share
@@ -951,30 +944,21 @@ def schedule_units(ctx, mem, tasks):
             continue
         # choose a target tile
         best, best_score = None, 0.0
-        rush = hours_left <= P["rush_hours"]
         for tpos, lst in tasks.items():
             if tpos in reserved and reserved[tpos] != u:
                 continue
             val = 0.0
-            carried_need = False
             for op, v, needs in lst:
                 if v > 0 and unit_can(inv, needs, ctx):
                     val += v
-                    if needs in ANIMALS or needs == "FERT":
-                        carried_need = True
             if val <= 0:
                 continue
             d = dist(pos, tpos)
             if d + 1 > hours_left:
                 continue
-            if last_day and d + 2 + dist(tpos, ctx.nearest_shed_tile(tpos)) > hours_left:
-                continue
-            if rush:
-                score = val / (d + 1.0) ** 1.3
-            else:
-                score = (1.0 + math.log1p(val)) / (d + 1.0) ** P["sweep_dist_pow"]
+            score = val / (d + 1.0) ** 1.3
             z = zones.get(tpos)
-            if z is not None and z != u and val < 20000 and not carried_need:
+            if z is not None and z != u and val < 20000:
                 score *= 0.25   # someone else's zone: only help if clearly better
             if tpos == targets.get(u):
                 score *= 1.25
@@ -1012,7 +996,7 @@ def desired_hands(ctx, mem):
     placements = min(len(plan), sunk_anim + sunk_seed + buyable)
     actions = len(ctx.animals) * P["load_animal"] + len(ctx.plants) * P["load_plant"] + placements * 3.0 + len(ctx.weeds) * 0.3
     if ctx.last_day:
-        actions = len(ctx.animals) * 2.5 + len(ctx.plants) * 2.0 + 12
+        actions = len(ctx.animals) * 1.5 + len(ctx.plants) * 1.2 + 4
     need = hands_for_load(actions)
     if not ctx.last_day:
         need = max(need, int(mem.get("H", 0)))
@@ -1030,11 +1014,6 @@ def desired_hands(ctx, mem):
 def sell_orders(ctx, mem):
     orders = []
     dl = ctx.days_left
-    dropping = mem.get("dropping") or {}
-    shed_now = dict(ctx.shed)
-    for k, v in dropping.items():
-        if k in PRODUCTS:
-            shed_now[k] = shed_now.get(k, 0) + v
     n_anim = len(ctx.animals) + sum(ctx.shed.get(a, 0) + ctx.carried(a) for a in ANIMALS)
     endgame = ctx.steps_left <= 0
     # emergency: if cash cannot cover feed for the unfed animals, sell anything
@@ -1044,7 +1023,7 @@ def sell_orders(ctx, mem):
     emergency = feed_gap > 0 and not ctx.last_day
     held_value = []
     for item in PRODUCTS:
-        q = shed_now.get(item, 0)
+        q = ctx.shed.get(item, 0)
         if q <= 0:
             continue
         inv = ctx.inv.get(item, I0)
@@ -1120,11 +1099,9 @@ def market_orders(ctx, mem, buy_plan):
             plan_names[v] = plan_names.get(v, 0) + 1
         for name, n in sorted(plan_names.items(), key=lambda kv: -(ANIMALS[kv[0]]["cost"] if kv[0] in ANIMALS else CROPS[kv[0]]["seed"])):
             if name in ANIMALS:
-                if name not in buy_plan or ctx.day > P["late_animal_day"] or dl - ANIMALS[name]["first"] < 2:
-                    continue
                 have = ctx.shed.get(name, 0) + ctx.carried(name)
                 planned = sum(1 for v in (mem.get("plan") or {}).values() if v == name)
-                need = min(planned - have, buy_plan.get(name, 0))
+                need = planned - have
                 cost = ANIMALS[name]["cost"] + P["feed_days"] * feed_unit_price(ctx)
                 k = min(need, int((cash - reserve) // cost), shed_room)
                 if k > 0:
