@@ -153,7 +153,6 @@ P = {
     "straw_cap": 44,
     "cow_k": 2.5,                 # cows = cow_base + expected milk demand / cow_k
     "cow_base": 3,
-    "opp_weight": 0.8,            # how much of the opponent's visible production to subtract from demand
     "sheep_k": 4.5,
     "tomato_min_dem": 18,
     "future_shop_weight": 0.6,    # weight of not-yet-unlocked shops in expected demand
@@ -161,7 +160,7 @@ P = {
     "buy_se": False,              # never buy the $4000 quadrant
     "land_ne_day": 4,
     "land_sw_day": 7,
-    "guard_price": {"MILK": 90, "WOOL": 90, "STRAWBERRY": 80, "TOMATO": 40, "MELON": 60},
+    "guard_price": {"MILK": 45, "WOOL": 45, "STRAWBERRY": 45, "TOMATO": 30, "MELON": 60},
     "fert_cheap": 30,             # fertilize wheat/carrot only below this fertilizer price
     "rush_hours": 6,          # value-first targeting when this few hours remain in the day
     "sweep_dist_pow": 2.0,    # distance exponent for nearest-first sweeping
@@ -668,32 +667,10 @@ def expected_demand(ctx):
     return exp
 
 
-def opponent_rates(ctx):
-    """Opponent's visible production rate per product (units/day)."""
-    r = {p: 0.0 for p in PRODUCTS}
-    if ctx.opp is None:
-        return r
-    for row in G(ctx.opp, "tiles", []):
-        for t in row:
-            if is_animal(t):
-                a = ANIMALS[t["animal"]]
-                r[a["product"]] += (1.0 + a["interval"]) / a["interval"]
-            elif is_plant(t):
-                c = CROPS[t["crop"]]
-                if c["ongoing"]:
-                    r[c["product"]] += (2.0 if t["crop"] == "STRAWBERRY" else 1.0) * c["max_yield"] / (c["first"] + c["interval"] * (c["max_yield"] - 1) + 1)
-                else:
-                    r[c["product"]] += c["units"] / CYCLE[t["crop"]]
-    return r
-
-
 def recipe_targets(ctx, counts):
-    """Target tile counts per kind for today, from the top-bot recipe and the demand left after the opponent."""
+    """Target tile counts per kind for today, from the top-bot recipe and expected demand."""
     d = ctx.day
     exp = expected_demand(ctx)
-    opp = opponent_rates(ctx)
-    for p in ("MILK", "WOOL", "STRAWBERRY", "TOMATO"):
-        exp[p] = max(0.0, exp[p] - P["opp_weight"] * opp.get(p, 0.0))
     T = {}
     cow_cap = int(max(2, min(P["max_cows"], round(P["cow_base"] + exp["MILK"] / P["cow_k"]))))
     T["COW"] = min(cow_cap, 2 + d) if d <= P["cow_last_day"] else 0
