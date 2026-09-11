@@ -18,6 +18,24 @@ frozen version of this agent (contested market, the realistic case).
 | ablations | each of the three v4.2 changes alone (vs v4, 16-24 games) | – | no-priority 50%, no-labor-budget 54%, no-cap 25% | placement priority and labor budget were the harm; the cap is fine |
 | v5 | unplaced-animal cap (4), placement labor 0, harvest all in the last 2 days, crash-prone goods first in sell list, robustness wrapper, 13 hands on the last day | **120.7k** (12 seeds, 100% wins) | **66-67% vs v4** (21/32 and 16/24; +5-6k mean) | seed 1: 155k; seed 5: 67k → 97k; produce left on tiles at the end: $4.7k → $0.2k |
 
+## v6: rebuilt from top-bot replays (after the first Kaggle submission scored 700)
+
+| Version | Change | Head-to-head | Notes |
+|---|---|---|---|
+| v6a | recipe planner: cows/sheep/strawberries/tomatoes sized to expected demand, melons day 0-1, no geese, 2 land buys, hands schedule, fertilizer as input | **94% vs v5** (98k vs 68k) | symmetric self-play only 54k on seed 100 (both flood milk) |
+| v6b | opponent-aware sizing (subtract visible opponent production), guards 90/90/80 | 56% vs v6a; 94% vs v5 | self-play 71k on seed 100 |
+| v6b+fill | value-based filler (carrot/tomato/strawberry) | 0-19% vs v6b | filler overshoots strawberries (57-67 tiles) and crashes prices |
+| v6b+sizing | all products incl. carrots/geese sized to residual demand | 4% vs v6b | self-play 88k but yields pools to the greedy opponent |
+| +fair-share floor | never size below 55% of full-demand target | 0% vs v6b | still too polite on cows (2-3 vs v6b's 5-8) |
+| +match-to-demand | full-demand sizing, reduce only for opponent excess | 4-12% vs v6b | guard still blocked cows: price model ignored future shops |
+| +expected-demand pricing | marginal price model uses expected demand; guards 70/70/60 | 12% vs v6b; wins seed 2300 | two-sided compare showed $12k/game of bought feed wheat |
+| **v6c** | feed wheat tiles allocated right after animals | **66% vs v6b** (90.9k vs 87.7k, 32 games); 92% vs v5; starter 124.7k | self-play 111.7k on seed 100 (was 71k) |
+| sweeps | fair_share 0.7, sheep_min 3 (no-ops), feed tiles 1.3 (44%) | – | kept defaults |
+
+Lesson: in a shared market, improvements that raise symmetric self-play income can lose
+head-to-head if they yield pools to a greedy opponent. Head-to-head against the previous
+champion is the only metric that matters for rating.
+
 ## Opening A/B (16 games each vs the auto planner)
 
 | Forced day-0 opening | v2 planner: income / auto / win | v5 planner: income / auto / win |
