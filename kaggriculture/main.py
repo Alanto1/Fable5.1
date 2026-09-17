@@ -240,9 +240,16 @@ DEBUG = bool(os.environ.get("KAGG_DEBUG"))
 class Ctx:
     def __init__(self, obs):
         self.player = int(G(obs, "player", 0))
-        self.step = int(G(obs, "step", 0))
-        self.day = int(G(obs, "day", self.step // TURNS_PER_DAY))
-        self.hour = int(G(obs, "hour", self.step % TURNS_PER_DAY))
+        step_field = G(obs, "step", None)
+        day_field = G(obs, "day", None)
+        hour_field = G(obs, "hour", None)
+        if day_field is not None and hour_field is not None:
+            # never depend on `step` (a framework field that may be absent for seat 1)
+            self.step = int(day_field) * TURNS_PER_DAY + int(hour_field)
+        else:
+            self.step = int(step_field or 0)
+        self.day = int(day_field) if day_field is not None else self.step // TURNS_PER_DAY
+        self.hour = int(hour_field) if hour_field is not None else self.step % TURNS_PER_DAY
         farms = G(obs, "farms", [])
         self.farm = farms[self.player]
         self.opp = farms[1 - self.player] if len(farms) > 1 else None
