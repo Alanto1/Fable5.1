@@ -148,7 +148,7 @@ P = {
     "weed_dig_value": 12.0,       # priority of clearing a weed
     "wheat_fill_max": 12,         # cap on filler wheat tiles
     "alloc_order": ["COW", "SHEEP", "MELON", "WHEAT_FEED", "STRAWBERRY", "GOOSE", "TOMATO", "CARROT", "FILL"],
-    "fill_reserve": 500,          # cash held back from animals so cheap tiles still get planted
+    "fill_reserve": 0,            # cash held back from animals so cheap tiles still get planted
     "max_cows": 12,
     "max_sheep": 18,
     "cow_last_day": 16,
