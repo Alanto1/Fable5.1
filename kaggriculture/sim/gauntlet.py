@@ -15,18 +15,22 @@ sys.path.insert(0, ROOT)
 
 # Profiles fitted to composition curves seen in real ladder replays
 # (see docs/kaggriculture/ladder-status.md for the observed targets).
+# Each entry is (base module, parameter overrides). Keeping opponents from two
+# strategy generations stops the panel drifting into a mirror of the current agent.
+V6F = "champ_v6f.py"
+V7C = "champ_v7c.py"
 PANEL = {
-    # heavy strawberry + repeated melon: the dominant winning profile
-    "ladder_straw": {"straw_mult": 2.2, "straw_cap": 48, "melon_repeat": 10,
-                     "melon_last_day": 14, "wheat_fill_max": 12, "tomato_min_dem": 99},
-    # animal-heavy: many cows and sheep, wheat for feed
-    "ladder_animal": {"cow_k": 1.8, "sheep_k": 3.0, "max_cows": 16, "max_sheep": 20,
-                      "straw_mult": 1.0, "melon_repeat": 0},
-    # melon rusher: races the melon pot early and often
-    "ladder_melon": {"melon_tiles": 16, "melon_repeat": 14, "melon_last_day": 16,
-                     "melon_guard": 45, "straw_mult": 1.2},
-    # broad generalist close to the current live submission
-    "champion": {},
+    # heavy strawberry + repeated melon: the dominant winning profile on the ladder
+    "ladder_straw":  (V7C, {"straw_mult": 2.5, "straw_cap": 48, "melon_repeat": 10,
+                            "melon_last_day": 14, "wheat_fill_max": 12, "tomato_min_dem": 99}),
+    # animal-heavy: many cows and sheep, wheat grown for feed
+    "ladder_animal": (V7C, {"cow_k": 1.8, "sheep_k": 3.0, "max_cows": 16, "max_sheep": 20,
+                            "straw_mult": 1.0, "melon_repeat": 0}),
+    # melon rusher: races the shared melon pot early and often
+    "ladder_melon":  (V7C, {"melon_tiles": 16, "melon_repeat": 14, "melon_last_day": 16,
+                            "melon_guard": 45, "straw_mult": 1.2}),
+    # the previous strategy generation, kept as a fixed reference point over time
+    "champion":      (V6F, {}),
 }
 CHECK_MIN_WINRATE = 0.50
 
@@ -96,11 +100,13 @@ def main():
         print("PASS")
         return
 
-    base = a.base or os.path.join(ROOT, "kaggriculture", "sim", "opponents", "champ_v6f.py")
     names = a.only.split(",") if a.only else list(PANEL)
+    oppdir = os.path.join(ROOT, "kaggriculture", "sim", "opponents")
     rows = []
     for k, name in enumerate(names):
-        opp = write_variant(name, PANEL[name], base)
+        base_name, overrides = PANEL[name]
+        base = a.base or os.path.join(oppdir, base_name)
+        opp = write_variant(name, overrides, base)
         rel = os.path.relpath(opp, ROOT)
         r = run_pair(a.agent, rel, a.games, a.seed0 + 1000 * k, a.workers)
         r["name"] = name

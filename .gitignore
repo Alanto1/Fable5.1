@@ -13,3 +13,9 @@ kaggle.json
 access_token
 *.token
 .env
+
+# generated benchmark opponents and tuner scratch
+kaggriculture/sim/opponents/gauntlet_*.py
+kaggriculture/sim/opponents/tune_*.py
+kaggriculture/sim/opponents/[abc]_*.py
+kaggriculture/sim/tuner_state.json

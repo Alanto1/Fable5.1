@@ -1,0 +1,65 @@
+name: Kaggriculture nightly tuner
+
+# Searches the agent's parameter space on GitHub's CPU while nobody is watching.
+# Opens a pull request when it finds a configuration that beats the champion by a
+# margin on the confirmation round. It never submits to Kaggle by itself.
+
+on:
+  schedule:
+    - cron: '0 2 * * *'        # 02:00 UTC nightly
+  workflow_dispatch:
+    inputs:
+      candidates:
+        description: 'Candidates to screen'
+        required: false
+        default: '14'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: kaggriculture-tuner
+  cancel-in-progress: false
+
+jobs:
+  tune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install --quiet kaggle-environments==1.32.7
+
+      - name: Search parameter space
+        run: |
+          python -m kaggriculture.sim.tuner \
+            --candidates "${{ github.event.inputs.candidates || 14 }}" \
+            --screen 8 --survivors 3 --confirm 32 --margin 0.06 \
+            --budget-min 240 --apply | tee /tmp/tuner.log
+          cat /tmp/tuner.log >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open a pull request if a candidate was promoted
+        run: |
+          if ! grep -q '^PROMOTE:' /tmp/tuner.log; then
+            echo "nothing promoted tonight"; exit 0
+          fi
+          git config user.name  "kaggriculture-tuner"
+          git config user.email "actions@github.com"
+          BR="tuner/$(date -u +%Y%m%d-%H%M)"
+          git checkout -b "$BR"
+          git add kaggriculture/main.py kaggriculture/sim/tuner_state.json
+          git commit -m "tuner: promote parameter set found overnight
+
+$(grep -A2 '^PROMOTE:' /tmp/tuner.log)"
+          git push origin "$BR"
+          gh pr create --title "Tuner: promoted parameter set" \
+            --body "$(printf 'Nightly parameter search found a configuration beating the champion on the gauntlet.\n\n```\n%s\n```\n\nThe benchmark gate runs on this branch. Review before submitting to Kaggle.\n' "$(grep -A3 '^PROMOTE:' /tmp/tuner.log)")" \
+            --base "${{ github.ref_name }}" --head "$BR"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
