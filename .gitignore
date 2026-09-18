@@ -6,3 +6,10 @@ kaggriculture/sim/results/
 kaggriculture/sim/replays/
 *.replay.json
 .DS_Store
+
+# never commit credentials
+.kaggle/
+kaggle.json
+access_token
+*.token
+.env

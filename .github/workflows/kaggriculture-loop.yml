@@ -1,0 +1,84 @@
+name: Kaggriculture ladder loop
+
+# Harvests replays of the live submission, extracts features, and reports how the
+# agent is doing against the real ladder. Raw replays (~30 MB each) are deleted
+# after feature extraction so the repo stays small.
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'      # every 3 hours
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max new episodes to download this run'
+        required: false
+        default: '30'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kaggriculture-loop
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/youthful-hypatia-dx9fgx
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install --quiet kaggle kaggle-environments==1.32.7
+
+      - name: Resolve active submission
+        id: sub
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          set -eo pipefail
+          kaggle competitions submissions kaggriculture -v > /tmp/subs.csv
+          # newest submission id is the first data row
+          SUB=$(awk -F, 'NR==2 {print $1}' /tmp/subs.csv)
+          SCORE=$(awk -F, 'NR==2 {print $6}' /tmp/subs.csv)
+          echo "id=$SUB"    >> "$GITHUB_OUTPUT"
+          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+          echo "Active submission $SUB scoring $SCORE"
+
+      - name: Harvest replays
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          python -m kaggriculture.ladder.harvest \
+            --submission "${{ steps.sub.outputs.id }}" \
+            --limit "${{ github.event.inputs.limit || 30 }}"
+
+      - name: Build ladder report
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          python -m kaggriculture.ladder.report \
+            --rating "${{ steps.sub.outputs.score }}" \
+            --out docs/kaggriculture/ladder-status.md
+
+      - name: Commit new data
+        run: |
+          git config user.name  "kaggriculture-bot"
+          git config user.email "actions@github.com"
+          git add kaggriculture/ladder/features docs/kaggriculture/ladder-status.md
+          if git diff --cached --quiet; then
+            echo "no new episodes"
+          else
+            N=$(git diff --cached --name-only | grep -c 'ladder/features' || true)
+            git commit -m "ladder: +${N} episodes, rating ${{ steps.sub.outputs.score }}"
+            git push origin claude/youthful-hypatia-dx9fgx
+          fi
+
+      - name: Summary
+        run: cat docs/kaggriculture/ladder-status.md >> "$GITHUB_STEP_SUMMARY"

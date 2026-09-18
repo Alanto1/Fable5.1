@@ -1,0 +1,46 @@
+name: Kaggriculture benchmark gate
+
+# Runs the candidate agent against opponent clones built from real ladder replays.
+# This is the gate: a candidate may only be submitted if it beats the champion here.
+
+on:
+  push:
+    branches: [claude/youthful-hypatia-dx9fgx]
+    paths:
+      - 'kaggriculture/main.py'
+      - 'kaggriculture/sim/**'
+      - '.github/workflows/kaggriculture-benchmark.yml'
+  workflow_dispatch:
+    inputs:
+      games:
+        description: 'Games per opponent'
+        required: false
+        default: '24'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install --quiet kaggle-environments==1.32.7
+
+      - name: Run gauntlet against real-opponent clones
+        run: |
+          python -m kaggriculture.sim.gauntlet \
+            --agent kaggriculture/main.py \
+            --games "${{ github.event.inputs.games || 24 }}" \
+            --out /tmp/gauntlet.md
+          cat /tmp/gauntlet.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if the candidate is worse than the champion
+        run: python -m kaggriculture.sim.gauntlet --check /tmp/gauntlet.md
