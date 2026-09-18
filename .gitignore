@@ -15,7 +15,9 @@ access_token
 .env
 
 # generated benchmark opponents and tuner scratch
-kaggriculture/sim/opponents/gauntlet_*.py
-kaggriculture/sim/opponents/tune_*.py
-kaggriculture/sim/opponents/[abc]_*.py
 kaggriculture/sim/tuner_state.json
+
+# Generated benchmark opponents and tuner scratch. Only the frozen champions are
+# tracked; every other file here is regenerated on demand by gauntlet/tuner runs.
+kaggriculture/sim/opponents/*
+!kaggriculture/sim/opponents/champ_*.py
