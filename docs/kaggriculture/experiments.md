@@ -44,6 +44,37 @@ Lesson: in a shared market, improvements that raise symmetric self-play income c
 head-to-head if they yield pools to a greedy opponent. Head-to-head against the previous
 champion is the only metric that matters for rating.
 
+
+## v7: rebuilt against real ladder data (Sept 18)
+
+The token arrived, so for the first time these numbers come from games the agent actually
+played rather than from self-play. 45 real episodes: 18W/27L, rating 731, mean margin
+-10,520, and **no crashes or timeouts** — the gap was entirely strategy.
+
+Gauntlet replaces self-play. Self-play between near-identical agents returns ~50% whatever
+the quality, which is what produced two mediocre submissions. The panel holds four
+deliberately different opponents; the live agent scored 25% against the strawberry profile.
+
+| Version | Change | Gauntlet | Notes |
+|---|---|---|---|
+| v6f (live) | — | 46.9% | 25% vs the strawberry profile |
+| v7 | strawberry target 1.5 -> 2.2, melon replanting, tomatoes off, wheat filler capped at 12 | 59.4% | submitted, reached 777 rating |
+| v7c | hold \$500 back for crop tiles | **68.8%** vs v7a's 60.4% on identical seeds | fixed 18.6 idle tiles at day 9 |
+| v7d | wheat filler uncapped + value-based endgame | **67.7%** vs 57.3% baseline over 192 games | replicated on two seed sets |
+
+Measured and rejected:
+
+| Idea | Result | Why |
+|---|---|---|
+| Strawberries first in the allocation order | 0/48 | animals never get established |
+| \$1500 fill reserve | 8/48 | starves the animals for the same reason |
+| Endgame crop switch alone | 61.5% vs 60.4% | noise |
+| Wheat cap alone at 999 / 18 / 30 | 62.5% / 66.7% / 63.5% | none replicate alone |
+
+The last row is the important one: several single knobs looked like wins on one seed set and
+collapsed on another. Only the combination of an uncapped wheat filler and a value-based
+endgame held up across both. Anything under six points at 96 games is noise.
+
 ## Opening A/B (16 games each vs the auto planner)
 
 | Forced day-0 opening | v2 planner: income / auto / win | v5 planner: income / auto / win |
