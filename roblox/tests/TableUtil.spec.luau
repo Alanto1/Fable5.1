@@ -1,5 +1,5 @@
 --!nonstrict
-local TableUtil = require("../src/shared/Util/TableUtil")
+local TableUtil = require("./.build/shared/Util/TableUtil")
 
 return function(t)
 	t.case("deepCopy produces an independent copy", function()

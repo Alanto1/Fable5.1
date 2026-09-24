@@ -1,5 +1,5 @@
 --!nonstrict
-local Format = require("../src/shared/Util/Format")
+local Format = require("./.build/shared/Util/Format")
 
 return function(t)
 	t.case("short formats small numbers plainly", function()

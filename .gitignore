@@ -30,3 +30,6 @@ roblox/assets/export/*.glb
 roblox/assets/export/*.mtl
 roblox/roblox.yml
 sourcemap.json
+
+# Lune test mirror
+roblox/tests/.build/

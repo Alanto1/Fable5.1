@@ -30,7 +30,16 @@ jobs:
       - name: Lint
         run: |
           selene generate-roblox-std
-          selene src tests
+          selene --allow-warnings src tests
+
+      - name: Unit tests
+        run: lune run tests/run.luau
+
+      - name: Type check
+        run: |
+          curl -sSL -o globalTypes.d.luau https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/main/scripts/globalTypes.d.luau
+          rojo sourcemap default.project.json -o sourcemap.json
+          luau-lsp analyze --defs=globalTypes.d.luau --base-luaurc=.luaurc --sourcemap=sourcemap.json src
 
       - name: Build place
         run: |

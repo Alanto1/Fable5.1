@@ -1,5 +1,5 @@
 --!nonstrict
-local Guard = require("../src/shared/Net/Guard")
+local Guard = require("./.build/shared/Net/Guard")
 
 return function(t)
 	t.case("number rejects NaN, inf and out-of-range", function()
