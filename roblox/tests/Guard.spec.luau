@@ -1,0 +1,55 @@
+--!nonstrict
+local Guard = require("../src/shared/Net/Guard")
+
+return function(t)
+	t.case("number rejects NaN, inf and out-of-range", function()
+		local g = Guard.number(0, 10)
+		t.truthy(g(5))
+		t.falsy(g(0 / 0))
+		t.falsy(g(math.huge))
+		t.falsy(g(-1))
+		t.falsy(g(11))
+		t.falsy(g("5"))
+	end)
+
+	t.case("integer rejects fractions", function()
+		t.truthy(Guard.integer(1, 3)(2))
+		t.falsy(Guard.integer(1, 3)(2.5))
+	end)
+
+	t.case("string enforces max length", function()
+		t.truthy(Guard.string(3)("abc"))
+		t.falsy(Guard.string(3)("abcd"))
+		t.falsy(Guard.string()(5))
+	end)
+
+	t.case("enum and keyOf", function()
+		t.truthy(Guard.enum({ "a", "b" })("a"))
+		t.falsy(Guard.enum({ "a", "b" })("c"))
+		t.truthy(Guard.keyOf({ x = 1 })("x"))
+		t.falsy(Guard.keyOf({ x = 1 })("y"))
+	end)
+
+	t.case("shape is strict about extra keys", function()
+		local g = Guard.shape({ x = Guard.number(), y = Guard.optional(Guard.string()) })
+		t.truthy(g({ x = 1 }))
+		t.truthy(g({ x = 1, y = "s" }))
+		t.falsy(g({ x = 1, z = 2 }))
+		t.falsy(g({ y = "s" }))
+	end)
+
+	t.case("array checks items and length", function()
+		local g = Guard.array(Guard.integer(), 3)
+		t.truthy(g({ 1, 2, 3 }))
+		t.falsy(g({ 1, 2, 3, 4 }))
+		t.falsy(g({ 1, "2" }))
+		t.falsy(g({ [2] = 1 }))
+	end)
+
+	t.case("check validates argument lists", function()
+		local guards = { Guard.string(8), Guard.integer(0) }
+		t.truthy((Guard.check(guards, "hello", 3)))
+		t.falsy((Guard.check(guards, "hello", -1)))
+		t.falsy((Guard.check(guards, "hello", 3, "extra")))
+	end)
+end

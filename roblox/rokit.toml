@@ -1,0 +1,9 @@
+# Tool versions for local development on your machine (install Rokit: https://github.com/rojo-rbx/rokit).
+# Run `rokit install` inside this folder.
+
+[tools]
+rojo = "rojo-rbx/rojo@7.7.0"
+stylua = "JohnnyMorganz/StyLua@2.3.0"
+selene = "Kampfkarren/selene@0.29.0"
+lune = "lune-org/lune@0.10.1"
+luau-lsp = "JohnnyMorganz/luau-lsp@1.58.0"
