@@ -48,6 +48,16 @@ local reRolls: { [Player]: number } = {}
 
 local now = os.time
 
+-- A player is busy while they are in a raid that has not finished for them yet.
+local function busy(player: Player): boolean
+	local raid = raids[player]
+	if not raid then
+		return false
+	end
+	local r = raid.raiders[player]
+	return raid.state ~= "Ended" and not (r and r.done)
+end
+
 local function raidIsActive(raid): boolean
 	return raid.state == "Active"
 end
@@ -246,8 +256,12 @@ end
 
 local function attachmentPos(model: Model, name: string): Vector3
 	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("Attachment") and descendant.Name == name then
-			return descendant.WorldPosition
+		if descendant.Name == name then
+			if descendant:IsA("Attachment") then
+				return descendant.WorldPosition
+			elseif descendant:IsA("BasePart") then
+				return descendant.Position
+			end
 		end
 	end
 	return model:GetPivot().Position + Vector3.new(0, 5, 40)
@@ -296,6 +310,7 @@ local function spawnPiles(raid, position: Vector3, total: number, spread: number
 			Vector3.new(math.cos(angle) * power, 18 + math.random() * 10, math.sin(angle) * power)
 		pile:SetAttribute("Value", value)
 		pile.Parent = raid.container
+		pile:SetNetworkOwner(nil)
 		raid.piles[pile] = value
 		task.delay(2.5, function()
 			if pile.Parent then
@@ -407,6 +422,9 @@ local function endRaid(raid)
 	end
 	task.delay(Balance.Raid.ResultsSeconds, function()
 		for player in raid.raiders do
+			if raids[player] ~= raid then
+				continue -- already in a new raid
+			end
 			raids[player] = nil
 			Effects.clear(player)
 			if player.Parent then
@@ -719,6 +737,7 @@ local function raidTick()
 				humanoid.WalkSpeed = speed * Effects.speedMultiplier(player)
 				character:SetAttribute("SackFill", sackFill(raid, player))
 				-- Pickups
+				local leftovers = {}
 				for pile, value in raid.piles do
 					if
 						pile.Parent
@@ -735,10 +754,13 @@ local function raidTick()
 						pile:Destroy()
 						Net.Server.fire(player, "SackUpdated", r.sack, r.capacity, taken)
 						if taken < value then
-							-- Leave the remainder as a smaller pile for a teammate.
-							spawnPiles(raid, root.Position, value - taken, 3)
+							table.insert(leftovers, value - taken)
 						end
 					end
+				end
+				for _, amount in leftovers do
+					-- Leave the remainder as a smaller pile for a teammate.
+					spawnPiles(raid, root.Position, amount, 3)
 				end
 				-- Extraction
 				if inExit(raid.arena, root.Position) and (r.sack > 0 or raid.vaultCracked) then
@@ -897,12 +919,12 @@ local function onDash(player: Player)
 		dir = root.CFrame.LookVector
 	end
 	dir = Vector3.new(dir.X, 0, dir.Z).Unit
-	root.AssemblyLinearVelocity = dir * Balance.Player.DashSpeed + Vector3.new(0, 2, 0)
+	Effects.push(player, dir * Balance.Player.DashSpeed + Vector3.new(0, 2, 0))
 	Net.Server.fireAll("DashFx", player)
 end
 
 local function onRequestRaid(player: Player, mode: string?)
-	if raids[player] then
+	if busy(player) then
 		return
 	end
 	local profile = DataService.getProfile(player)
@@ -914,7 +936,7 @@ local function onRequestRaid(player: Player, mode: string?)
 end
 
 local function onReRoll(player: Player)
-	if raids[player] or not offers[player] then
+	if busy(player) or not offers[player] then
 		return
 	end
 	local profile = DataService.getProfile(player)
@@ -936,7 +958,7 @@ local function onReRoll(player: Player)
 end
 
 local function onAcceptRaid(player: Player, offerId: string)
-	if raids[player] then
+	if busy(player) then
 		return
 	end
 	local offer = offers[player]
@@ -950,7 +972,7 @@ local function onAcceptRaid(player: Player, offerId: string)
 end
 
 local function onRevenge(player: Player, targetUserId: number)
-	if raids[player] then
+	if busy(player) then
 		return
 	end
 	local profile = DataService.getProfile(player)
@@ -1019,7 +1041,7 @@ end
 ------------------------------------------------------------------------------------------------
 
 function RaidService.isRaiding(player: Player): boolean
-	return raids[player] ~= nil
+	return busy(player)
 end
 
 function RaidService.init()

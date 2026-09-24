@@ -119,7 +119,7 @@ function behaviours.Cannon(entry, context)
 							local dir = (hrp.Position - shell.Position)
 							dir = Vector3.new(dir.X, 0.4, dir.Z)
 							if dir.Magnitude > 0 then
-								hrp.AssemblyLinearVelocity = dir.Unit * knockback
+								Effects.push(player, dir.Unit * knockback)
 							end
 						end
 						fx(model, "CannonHit", { position = shell.Position })

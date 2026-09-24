@@ -3,6 +3,9 @@
 -- Speed is recomputed by RaidService each tick from these plus sack weight; this module only
 -- stores the state and applies instantaneous things (damage, fling, root).
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Net = require(ReplicatedStorage:WaitForChild("Shared").Net.Net)
+
 local Effects = {}
 
 export type State = {
@@ -62,8 +65,7 @@ end
 function Effects.fling(player: Player, from: Vector3, force: number)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not root or not humanoid then
+	if not root then
 		return
 	end
 	local away = (root.Position - from)
@@ -72,15 +74,14 @@ function Effects.fling(player: Player, from: Vector3, force: number)
 		away = root.CFrame.LookVector * -1
 	end
 	away = away.Unit
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-	root.AssemblyLinearVelocity = away * force * 0.6 + Vector3.new(0, force, 0)
-	root.AssemblyAngularVelocity =
-		Vector3.new(math.random() * 8 - 4, math.random() * 8 - 4, math.random() * 8 - 4)
-	task.delay(1.4, function()
-		if humanoid.Parent and humanoid.Health > 0 then
-			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-		end
-	end)
+	-- The client owns its character's physics, so it applies the launch itself.
+	Net.Server.fire(player, "ApplyImpulse", away * force * 0.6 + Vector3.new(0, force, 0), true)
+	Effects.stun(player, 1.2)
+end
+
+-- Straight push without ragdoll (cannon shells, dashes).
+function Effects.push(player: Player, velocity: Vector3)
+	Net.Server.fire(player, "ApplyImpulse", velocity, false)
 end
 
 -- Speed multiplier from active effects, and whether the player is rooted/stunned.

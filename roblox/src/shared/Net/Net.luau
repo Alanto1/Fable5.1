@@ -136,6 +136,13 @@ function Net.Server.handle(name: string, guards, handler, options)
 	return remote
 end
 
+-- Create every server-to-client event before players can join.
+function Net.Server.declare(names: { string })
+	for _, name in names do
+		getRemote(name, "RemoteEvent")
+	end
+end
+
 function Net.Server.event(name: string): RemoteEvent
 	return getRemote(name, "RemoteEvent") :: RemoteEvent
 end
@@ -182,11 +189,28 @@ end
 
 function Net.Client.on(name: string, handler)
 	assert(RunService:IsClient(), "Net.Client used on server")
-	local remote = waitRemote(name, "RemoteEvent") :: RemoteEvent?
-	if not remote then
-		return nil
+	local folder = getFolder()
+	local existing = folder and folder:FindFirstChild(name)
+	if existing and existing:IsA("RemoteEvent") then
+		return existing.OnClientEvent:Connect(handler)
 	end
-	return remote.OnClientEvent:Connect(handler)
+	-- Not there yet: attach as soon as it appears, without blocking the caller.
+	local connection = nil
+	local added
+	added = folder.ChildAdded:Connect(function(child)
+		if child.Name == name and child:IsA("RemoteEvent") then
+			added:Disconnect()
+			connection = child.OnClientEvent:Connect(handler)
+		end
+	end)
+	return {
+		Disconnect = function()
+			added:Disconnect()
+			if connection then
+				connection:Disconnect()
+			end
+		end,
+	}
 end
 
 function Net.Client.fire(name: string, ...)

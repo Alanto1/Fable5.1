@@ -18,6 +18,7 @@ generated from this folder: Luau code, part-built props, map layout and Blender 
 | `tools` | `check.sh` (format, lint, typecheck, tests, build), generators |
 | `tests` | Lune unit tests for pure modules |
 | `build` | Built `.rbxl` (git-ignored) |
+| `dist` | The last verified build, committed so it can be opened in Studio without any tooling |
 
 ## Daily workflow
 
@@ -32,7 +33,7 @@ cd roblox && rokit install
 rojo serve default.project.json
 ```
 
-Open `build/RaidABase.rbxl` in Roblox Studio to play-test. In Studio, enable
+Open `dist/RaidABase.rbxl` (committed at each milestone) or your fresh `build/RaidABase.rbxl` in Roblox Studio to play-test. In Studio, enable
 **Game Settings > Security > Enable Studio Access to API Services** for real DataStores;
 without it the game falls back to an in-memory store so play-testing still works.
 
@@ -52,4 +53,4 @@ without it the game falls back to an in-memory store so play-testing still works
 
 ## Publishing checklist
 
-See `docs/roblox/publishing.md` (written with the game build).
+See `docs/roblox/06-publishing.md`.

@@ -332,7 +332,7 @@ local function onGuardFx(npc, kind, extra)
 end
 
 function EffectsController.init()
-	RunService.RenderStepped:Connect(function(dt)
+	RunService:BindToRenderStep("RaidShake", Enum.RenderPriority.Camera.Value + 1, function(dt)
 		if shakeAmount > 0.01 then
 			local offset =
 				Vector3.new((math.random() - 0.5) * shakeAmount, (math.random() - 0.5) * shakeAmount, 0)

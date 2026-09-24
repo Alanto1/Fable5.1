@@ -41,6 +41,7 @@ local connections = {}
 local currentOffer = nil
 local resultsFrame = nil
 local raidsCompleted = 0
+local arenaIndex = nil
 
 ------------------------------------------------------------------------------------------------
 -- Offer card
@@ -357,8 +358,16 @@ local function findSwingTarget(): BasePart?
 	-- Mouse users aim with the cursor; touch and gamepad aim where the character faces.
 	local origin, direction
 	if InputController.Device == "Keyboard" then
-		local mouse = UserInputService:GetMouseLocation()
-		local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
+		local mouse = player:GetMouse()
+		local hit = mouse.Target
+		if
+			hit
+			and (hit.Position - root.Position).Magnitude
+				<= Balance.Raid.SwingRange + hit.Size.Magnitude / 2
+		then
+			return hit
+		end
+		local ray = camera:ScreenPointToRay(mouse.X, mouse.Y)
 		origin, direction = ray.Origin, ray.Direction * 200
 	else
 		origin = root.Position + Vector3.new(0, 1, 0)
@@ -373,12 +382,7 @@ local function findSwingTarget(): BasePart?
 	end
 	-- Fallback: nearest hittable part in front of the player within range.
 	local best, bestDist = nil, Balance.Raid.SwingRange
-	local raidFolder = nil
-	for _, child in workspace:GetChildren() do
-		if child.Name:sub(1, 5) == "Raid_" then
-			raidFolder = child
-		end
-	end
+	local raidFolder = arenaIndex ~= nil and workspace:FindFirstChild("Raid_" .. arenaIndex) or nil
 	if raidFolder then
 		for _, descendant in raidFolder:GetDescendants() do
 			if
@@ -564,8 +568,14 @@ local function maybePromptNotifications()
 	if raidsCompleted < 2 then
 		return
 	end
-	local can = Net.Client.invoke("CanPromptNotifications")
-	if not can then
+	local allowed = Net.Client.invoke("CanPromptNotifications")
+	if not allowed then
+		return
+	end
+	local canOk, can = pcall(function()
+		return ExperienceNotificationService:CanPromptOptInAsync()
+	end)
+	if not canOk or not can then
 		return
 	end
 	local ok = pcall(function()
@@ -636,6 +646,7 @@ local function startClock()
 end
 
 local function onRaidStarted(info)
+	arenaIndex = info.arenaIndex
 	inRaid = true
 	endsAt = 0
 	HudController.close()
@@ -744,6 +755,41 @@ function RaidController.init()
 	Net.Client.on("VaultCracked", onVaultCracked)
 	Net.Client.on("RaidEnded", onRaidEnded)
 	Net.Client.on("RaidLeft", onRaidLeft)
+	-- Physics impulses on our own character (the client owns character physics).
+	Net.Client.on("ApplyImpulse", function(velocity, ragdoll)
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not root or not humanoid or typeof(velocity) ~= "Vector3" then
+			return
+		end
+		if ragdoll then
+			humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+			root.AssemblyAngularVelocity =
+				Vector3.new(math.random() * 8 - 4, math.random() * 8 - 4, math.random() * 8 - 4)
+			task.delay(1.4, function()
+				if humanoid.Parent and humanoid.Health > 0 then
+					humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+				end
+			end)
+			EffectsController.shake(0.8)
+		end
+		root.AssemblyLinearVelocity = velocity
+	end)
+	HudController.ScreenClosed:Connect(function(name)
+		if name == "Results" then
+			HubController.setRaiding(false)
+			if raidsCompleted == 1 then
+				task.delay(0.5, function()
+					HudController.toast(
+						"Nice haul! Now press BUILD and place a trap to protect your vault.",
+						"info",
+						5
+					)
+				end)
+			end
+		end
+	end)
 	Net.Client.on("DashFx", function(who)
 		if typeof(who) == "Instance" and who:IsA("Player") and who.Character then
 			local root = who.Character:FindFirstChild("HumanoidRootPart")

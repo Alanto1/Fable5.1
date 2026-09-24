@@ -9,7 +9,6 @@
 -- Roblox delivers at most one notification per user per day per experience.
 
 local HttpService = game:GetService("HttpService")
-local ExperienceNotificationService = game:GetService("ExperienceNotificationService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -109,10 +108,7 @@ function NotificationService.init()
 		if not profile or profile.Data.Settings.NotificationsPrompted then
 			return false
 		end
-		local ok, can = pcall(function()
-			return ExperienceNotificationService:CanPromptOptInAsync(player)
-		end)
-		return ok and can == true
+		return true
 	end, { rate = 1 })
 
 	-- Guard.string is unused here but kept so the remote surface is explicit.

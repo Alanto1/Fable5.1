@@ -318,7 +318,8 @@ function Components.IconButton(props)
 	local size = props.Size or Theme.Sizes.IconButton
 	local button = Components.Button({
 		Name = props.Name or "IconButton",
-		Text = "",
+		Text = (props.Icon == nil and props.Text) and props.Text:sub(1, 1) or "",
+		TextSize = 26,
 		Icon = props.Icon,
 		Color = props.Color or Theme.Colors.Accent,
 		ColorDark = props.ColorDark or Theme.Colors.AccentDark,

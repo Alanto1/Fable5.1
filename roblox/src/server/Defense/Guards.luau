@@ -59,6 +59,9 @@ function Guards.attach(entry, context)
 	local npc = Rig.build(id, id == "GuardDog" and 0.75 or 1)
 	npc:PivotTo(CFrame.new(home))
 	npc.Parent = context.container or workspace
+	pcall(function()
+		npc.PrimaryPart:SetNetworkOwner(nil)
+	end)
 	local humanoid = npc:FindFirstChildOfClass("Humanoid")
 	humanoid.MaxHealth = hp
 	humanoid.Health = hp

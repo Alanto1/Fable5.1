@@ -14,7 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rbx import attachment, cframe, folder, instance, model, part, point_light, seeded, write  # noqa: E402
+from rbx import cframe, folder, instance, model, part, point_light, seeded, write  # noqa: E402
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "map")
 
@@ -90,7 +90,6 @@ def plot(index: int) -> dict:
         part("Sign", (10, 4, 0.6), cframe(-14, 4, half + 3), (60, 40, 30), "Wood", attributes={"Sign": True}),
         part("SignPost", (0.8, 6, 0.8), cframe(-14, 3, half + 3), (120, 78, 40), "Wood"),
         # Grid lines are drawn at runtime in build mode; a subtle checker helps read cells.
-        attachment("Camera", cframe(0, 40, half + 30)),
     ]
     node = model(f"Plot{index}", children, "Root", {"PlotIndex": index})
     # Position the whole model by baking the plot transform into every part.
@@ -176,8 +175,7 @@ def arena(index: int) -> dict:
         part("ExitSign", (12, 2.4, 0.5), cframe(x, 8, z + half + 13), (96, 224, 120), "Neon", attributes={"Sign": "EXIT"}),
         part("ExitPostL", (0.8, 9, 0.8), cframe(x - 6, 4.5, z + half + 13), (70, 74, 90), "Metal"),
         part("ExitPostR", (0.8, 9, 0.8), cframe(x + 6, 4.5, z + half + 13), (70, 74, 90), "Metal"),
-        attachment("RaiderSpawn", cframe(x, 4, z + half + 20)),
-        attachment("Camera", cframe(x, 45, z + half + 40)),
+        part("RaiderSpawn", (2, 2, 2), cframe(x, 4, z + half + 20), (255, 255, 255), transparency=1.0, can_collide=False, can_touch=False),
         point_light("ArenaLight", (255, 255, 255), 0.5, 60),
     ]
     return model(f"Arena{index}", children, "Root", {"ArenaIndex": index})

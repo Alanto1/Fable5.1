@@ -5,6 +5,7 @@ return {
 	"QuestService",
 	"BaseService",
 	"RaidService",
+	"WorldService",
 	"CosmeticsService",
 	"CodesService",
 	"LeaderboardService",

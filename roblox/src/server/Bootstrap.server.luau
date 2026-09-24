@@ -8,7 +8,12 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 
+local Net = require(Shared.Net.Net)
+local RemoteNames = require(Shared.Net.RemoteNames)
+
 local Services = ServerScriptService:WaitForChild("Server"):WaitForChild("Services")
+
+Net.Server.declare(RemoteNames)
 
 local ORDER = {
 	"AnalyticsService",

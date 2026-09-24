@@ -23,7 +23,15 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "models", "Pieces"
 CELL = 4.0
 
 
-def root(w_cells: int, d_cells: int) -> dict:
+def root(w_cells: int, d_cells: int, attachments: list | None = None) -> dict:
+    """Invisible footprint part at the ground centre. Attachments (Muzzle, Spawn, Top) are its
+    children with CFrames relative to it, so they follow the model when it is pivoted."""
+    children = []
+    for att in attachments or []:
+        cf = list(att["properties"]["CFrame"])
+        cf[1] = round(cf[1] - 0.1, 4)  # root centre sits 0.1 above the ground
+        att["properties"]["CFrame"] = cf
+        children.append(att)
     return part(
         "Root",
         (w_cells * CELL, 0.2, d_cells * CELL),
@@ -33,6 +41,7 @@ def root(w_cells: int, d_cells: int) -> dict:
         can_collide=False,
         can_touch=False,
         cast_shadow=False,
+        children=children or None,
     )
 
 
@@ -41,7 +50,7 @@ def root(w_cells: int, d_cells: int) -> dict:
 
 def vault() -> dict:
     children = [
-        root(2, 2),
+        root(2, 2, [attachment("Top", cframe(0, 7.5, 0))]),
         part("Base", (7.6, 0.6, 7.6), cframe(0, 0.3, 0), (90, 90, 100), "Concrete", theme="metal"),
         part("Body", (6.4, 5.6, 6.4), cframe(0, 3.4, 0), (255, 190, 60), theme="vault"),
         part("Band", (6.8, 1.0, 6.8), cframe(0, 1.1, 0), (150, 100, 20), theme="vaultDark"),
@@ -52,14 +61,13 @@ def vault() -> dict:
         part("Spoke1", (0.3, 0.3, 1.9), cframe(0, 3.4, 3.7), (240, 240, 240), "Metal", theme="steel"),
         part("Spoke2", (1.9, 0.3, 0.3), cframe(0, 3.4, 3.7), (240, 240, 240), "Metal", theme="steel"),
         part("Coin", (0.3, 2.0, 2.0), cframe(0, 6.9, 0, 0, 0, 90), (255, 220, 90), "Neon", shape="Cylinder"),
-        attachment("Top", cframe(0, 7.5, 0)),
     ]
     return model("Vault", children, "Root", {"PieceId": "Vault"})
 
 
 def mine() -> dict:
     children = [
-        root(1, 1),
+        root(1, 1, [attachment("Top", cframe(0, 5.5, 0))]),
         part("Base", (3.6, 0.5, 3.6), cframe(0, 0.25, 0), (90, 80, 70), "Concrete", theme="metal"),
         part("Body", (2.8, 2.2, 2.8), cframe(0, 1.6, 0), (120, 90, 70), "WoodPlanks", theme="mine"),
         part("Roof", (3.2, 0.4, 3.2), cframe(0, 2.9, 0), (80, 60, 50), "Wood", theme="mineAccent"),
@@ -68,7 +76,6 @@ def mine() -> dict:
         part("Gem", (0.9, 0.9, 0.9), cframe(0, 4.9, 0, 45, 0, 45), (255, 205, 60), "Neon"),
         part("Cart", (1.4, 0.8, 1.0), cframe(1.0, 0.9, 1.4), (90, 90, 100), "Metal", theme="metal"),
         part("Ore", (0.8, 0.5, 0.6), cframe(1.0, 1.5, 1.4), (255, 205, 60), "Neon"),
-        attachment("Top", cframe(0, 5.5, 0)),
     ]
     return model("Mine", children, "Root", {"PieceId": "Mine"})
 
@@ -224,8 +231,10 @@ def bear_trap() -> dict:
 
 
 def turret_base(name: str, head_children: list, theme_accent="trap") -> dict:
+    attachments = [c for c in head_children if c["className"] == "Attachment"]
+    head_children = [c for c in head_children if c["className"] != "Attachment"]
     children = [
-        root(1, 1),
+        root(1, 1, attachments),
         part("Base", (3.6, 0.6, 3.6), cframe(0, 0.3, 0), (70, 74, 90), "Metal", theme="metal"),
         part("Pillar", (1.8, 2.4, 1.8), cframe(0, 1.8, 0), (90, 110, 130), "Metal", shape="Cylinder", theme="steelDark"),
         part("Pivot", (1.2, 0.6, 1.2), cframe(0, 3.3, 0), (70, 74, 90), "Metal", theme="metal"),
@@ -267,12 +276,11 @@ def goo_gun() -> dict:
 
 def guard_dock(name: str, accent, extra: list) -> dict:
     children = [
-        root(1, 1),
+        root(1, 1, [attachment("Spawn", cframe(0, 3.0, 0))]),
         part("Pad", (3.6, 0.4, 3.6), cframe(0, 0.2, 0), (70, 74, 90), "DiamondPlate", theme="metal"),
         part("Ring", (3.0, 0.2, 3.0), cframe(0, 0.45, 0), accent, "Neon", shape="Cylinder", transparency=0.3, can_collide=False),
         part("Post", (0.6, 3.0, 0.6), cframe(-1.5, 1.9, -1.5), (90, 110, 130), "Metal", theme="steelDark"),
         part("Lamp", (0.8, 0.8, 0.8), cframe(-1.5, 3.6, -1.5), accent, "Neon", shape="Ball"),
-        attachment("Spawn", cframe(0, 3.0, 0)),
     ]
     children.extend(extra)
     return model(name, children, "Root", {"PieceId": name})
@@ -348,13 +356,12 @@ def statue() -> dict:
 
 def fountain() -> dict:
     children = [
-        root(2, 2),
+        root(2, 2, [attachment("Spray", cframe(0, 4.9, 0))]),
         part("Basin", (7.2, 1.2, 7.2), cframe(0, 0.6, 0), (150, 150, 160), "Marble", shape="Cylinder", theme="decorAlt"),
         part("Water", (6.4, 0.3, 6.4), cframe(0, 1.1, 0), (80, 200, 255), "Glass", shape="Cylinder", transparency=0.4, can_collide=False),
         part("Column", (1.4, 3.0, 1.4), cframe(0, 2.5, 0), (150, 150, 160), "Marble", shape="Cylinder", theme="decorAlt"),
         part("Top", (3.0, 0.6, 3.0), cframe(0, 4.1, 0), (150, 150, 160), "Marble", shape="Cylinder", theme="decorAlt"),
         part("Spout", (0.8, 0.8, 0.8), cframe(0, 4.7, 0), (80, 200, 255), "Neon", shape="Ball", can_collide=False),
-        attachment("Spray", cframe(0, 4.9, 0)),
     ]
     # Cylinders lie along X; stand them up.
     for name in ("Basin", "Water", "Column", "Top"):
