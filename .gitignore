@@ -21,3 +21,15 @@ kaggriculture/sim/tuner_state.json
 # tracked; every other file here is regenerated on demand by gauntlet/tuner runs.
 kaggriculture/sim/opponents/*
 !kaggriculture/sim/opponents/champ_*.py
+
+# Roblox game build outputs and scratch
+roblox/build/
+roblox/assets/export/*.fbx
+roblox/assets/export/*.obj
+roblox/assets/export/*.glb
+roblox/assets/export/*.mtl
+roblox/roblox.yml
+sourcemap.json
+
+# Lune test mirror
+roblox/tests/.build/

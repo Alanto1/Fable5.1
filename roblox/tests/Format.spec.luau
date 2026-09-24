@@ -1,0 +1,40 @@
+--!nonstrict
+local Format = require("./.build/shared/Util/Format")
+
+return function(t)
+	t.case("short formats small numbers plainly", function()
+		t.eq(Format.short(0), "0")
+		t.eq(Format.short(999), "999")
+		t.eq(Format.short(-42), "-42")
+	end)
+
+	t.case("short uses K/M/B suffixes with trimmed decimals", function()
+		t.eq(Format.short(1000), "1K")
+		t.eq(Format.short(1234), "1.23K")
+		t.eq(Format.short(15500), "15.5K")
+		t.eq(Format.short(123456), "123K")
+		t.eq(Format.short(1500000), "1.5M")
+		t.eq(Format.short(2.5e9), "2.5B")
+		t.eq(Format.short(7e12), "7T")
+	end)
+
+	t.case("commas groups thousands", function()
+		t.eq(Format.commas(999), "999")
+		t.eq(Format.commas(1000), "1,000")
+		t.eq(Format.commas(1234567), "1,234,567")
+	end)
+
+	t.case("clock and duration", function()
+		t.eq(Format.clock(65), "1:05")
+		t.eq(Format.clock(3700), "1:01:40")
+		t.eq(Format.duration(45), "45s")
+		t.eq(Format.duration(90), "1m 30s")
+		t.eq(Format.duration(5400), "1h 30m")
+		t.eq(Format.duration(90000), "1d 1h")
+	end)
+
+	t.case("odds", function()
+		t.eq(Format.odds(0.01), "1 in 100")
+		t.eq(Format.odds(1 / 250000), "1 in 250,000")
+	end)
+end

@@ -1,4 +1,12 @@
-# Kaggle competition work – Fable 5.1 session
+# Fable 5.1 session workspace
+
+Two independent projects live here:
+
+- **Raid a Base!** – a Roblox game (design, code, generated assets, docs). Start at
+  [`docs/roblox/README.md`](docs/roblox/README.md); the game project is in [`roblox/`](roblox/).
+- **Kaggle competition work** – documented below.
+
+# Kaggle competition work
 
 This repository holds the research, code and documentation produced for three live Kaggle
 competitions, prioritised by what could be completed end to end on a CPU-only machine
